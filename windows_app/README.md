@@ -1,15 +1,15 @@
-# Gemini PDF Studio — Windows Desktop App
+# md2pdf — Windows Desktop App
 
-A native 64-bit Windows desktop application (`GeminiPDFStudio.exe`) built with WinForms and Microsoft Edge WebView2 inside `windows_app/`, leaving the root web-based studio (`../index.html`, `../server.py`, `../Start-Gemini-PDF-Studio.bat`) completely intact while sharing the core rendering and PDF export stack:
+A native 64-bit Windows desktop application (`md2pdf.exe`) built with WinForms and Microsoft Edge WebView2 inside `windows_app/`, leaving the root web-based studio (`../index.html`, `../server.py`, `../Start-md2pdf.bat`) completely intact while sharing the core rendering and PDF export stack:
 
-- `../gemini-renderer.js` — Markdown, Gemini sub-list reconstruction, KaTeX math rendering, and shared print/preview CSS
-- `../vendor/` — Local `marked.min.js`, `katex.min.js`, `katex.min.css`, and KaTeX `.woff2` fonts
-- `../pdf_engine.py` & `../gemini2pdf.py` — Shared Chromium headless PDF engine and auto-encoding text reader (via `desktop_backend.py`)
+- `../gemini-renderer.js` — Markdown, Gemini sub-list reconstruction, KaTeX math rendering, Mermaid SVG rendering, and shared print/preview CSS
+- `../vendor/` — Local `marked.min.js`, `katex.min.js`, `katex.min.css`, `beautiful-mermaid.min.js`, and KaTeX `.woff2` fonts
+- `../pdf_engine.py` & `../md2pdf.py` — Shared Chromium headless PDF engine and auto-encoding text reader (via `desktop_backend.py`)
 
 ## Launch
 
-- Double-click `GeminiPDFStudio.exe` or `Launch-Gemini-Desktop.bat`
-- Or pass a file directly: `GeminiPDFStudio.exe path\to\notes.md`
+- Double-click `md2pdf.exe` or `Launch-md2pdf.bat`
+- Or pass a file directly: `md2pdf.exe path\to\notes.md`
 
 ## Desktop Features
 
@@ -18,7 +18,7 @@ A native 64-bit Windows desktop application (`GeminiPDFStudio.exe`) built with W
 - **Dual PDF Engines** (`Document -> PDF Engine`):
   - **Shared Python Chromium Engine (`../pdf_engine.py`)** — Matches the web studio & CLI byte-for-byte (with automatic fallback to WebView2 if needed).
   - **Native WebView2 Direct PrintToPdf** — Instant in-process PDF generation.
-- **Batch PDF Export** (`Ctrl+B`): Convert multiple `.txt`/`.md` files into vector PDFs in one folder using `../gemini2pdf.py` + `../pdf_engine.py`.
+- **Batch PDF Export** (`Ctrl+B`): Convert multiple `.txt`/`.md` files into vector PDFs in one folder using `../md2pdf.py` + `../pdf_engine.py`.
 - **Live File Watcher** (`View -> Watch Open File for Changes`): Auto-reloads the open file when edited externally.
 - **Editor Productivity Tools**: Split / Editor-Only / Preview-Only layouts (`Ctrl+1` / `Ctrl+2` / `Ctrl+3`), Find & Replace (`Ctrl+F`), Markdown & LaTeX formatting toolbar, and Document Outline navigator.
 

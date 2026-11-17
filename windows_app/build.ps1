@@ -36,13 +36,13 @@ try {
         }
     }
 
-    $OutExe = Join-Path $AppDir "GeminiPDFStudio.exe"
+    $OutExe = Join-Path $AppDir "md2pdf.exe"
     $SrcCs = Join-Path $AppDir "src\Program.cs"
     $IconFile = Join-Path $AppDir "app.ico"
     $CoreDll = Join-Path $AppDir "Microsoft.Web.WebView2.Core.dll"
     $WinFormsDll = Join-Path $AppDir "Microsoft.Web.WebView2.WinForms.dll"
 
-    Write-Host "Compiling GeminiPDFStudio.exe (x64)..."
+    Write-Host "Compiling md2pdf.exe (x64)..."
     & $CscPath `
         /nologo `
         /target:winexe `

@@ -1,4 +1,4 @@
-"""Generate the multi-resolution Windows icon (app.ico) for Gemini PDF Studio."""
+"""Generate the multi-resolution Windows icon (app.ico) for md2pdf."""
 
 from __future__ import annotations
 

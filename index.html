@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gemini PDF Studio — .txt &amp; Markdown to Vector PDF</title>
+  <title>md2pdf — Markdown &amp; Math to Vector PDF</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23172554'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%2393C5FD' font-family='serif' font-style='italic' font-weight='700' font-size='20'%3E%CE%A3%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="vendor/katex.min.css" />
   <style id="docThemeStyles"></style>
@@ -485,7 +485,7 @@
     <header class="topbar">
       <div class="brand-group">
         <div class="brand-mark" aria-hidden="true">&Sigma;</div>
-        <span class="brand-title">Gemini PDF Studio</span>
+        <span class="brand-title">md2pdf</span>
         <span class="status-pill" id="mathStatus">
           <span class="status-dot"></span>
           <span id="mathStatusText">Ready</span>
@@ -580,7 +580,7 @@
         <textarea
           id="sourceInput"
           spellcheck="false"
-          placeholder="Paste copied Gemini text (Ctrl+V) or drop a .txt / .md file anywhere in this window..."
+          placeholder="Paste Markdown or copied Gemini text (Ctrl+V) or drop a .txt / .md file anywhere in this window..."
         ></textarea>
       </section>
 
@@ -655,7 +655,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         reconstructLists: true,
         cleanInvisible: true,
         lastRenderedHtml: '',
-        lastTitle: 'Gemini_Document'
+        lastTitle: 'md2pdf_Document'
       };
 
       const elSource = document.getElementById('sourceInput');
@@ -705,9 +705,9 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         elCharCount.textContent = raw.length.toLocaleString() + ' chars';
 
         if (!raw.trim()) {
-          elPreviewDoc.innerHTML = '<p style="opacity:0.6">Paste copied Gemini text or drop a .txt file to preview formatted equations.</p>';
+          elPreviewDoc.innerHTML = '<p style="opacity:0.6">Paste Markdown or copied Gemini text, or drop a .txt / .md file to preview formatted equations.</p>';
           state.lastRenderedHtml = '';
-          state.lastTitle = 'Gemini_Document';
+          state.lastTitle = 'md2pdf_Document';
           elPreviewTitle.textContent = 'Rendered output';
           elEqBreakdown.textContent = '0 block · 0 inline';
           elMathStatus.classList.remove('has-warn');

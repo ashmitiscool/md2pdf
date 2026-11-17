@@ -302,7 +302,7 @@
     });
 
     // Extract title from first heading for suggested PDF filename
-    let title = 'Gemini_Document';
+    let title = 'md2pdf_Document';
     const headingMatch = rawText.match(/^#{1,4}\s+(.+)$/m);
     if (headingMatch) {
       title = headingMatch[1]
@@ -310,7 +310,7 @@
         .replace(/[^\w\s-]/g, '')
         .trim()
         .replace(/\s+/g, '_')
-        .slice(0, 64) || 'Gemini_Document';
+        .slice(0, 64) || 'md2pdf_Document';
     }
 
     return {
@@ -558,7 +558,7 @@
   function buildStandaloneHtml(renderedHtml, options) {
     const opts = Object.assign(
       {
-        title: 'Gemini Document',
+        title: 'md2pdf Document',
         theme: 'dark',
         paper: 'A4',
         margins: 'normal',

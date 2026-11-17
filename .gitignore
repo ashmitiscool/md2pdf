@@ -9,6 +9,9 @@ venv/
 windows_app/webview2_data/
 windows_app/settings.json
 
+# Build / release outputs
+dist/
+
 # OS & temporary files
 .DS_Store
 Thumbs.db

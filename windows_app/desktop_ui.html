@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Gemini PDF Studio</title>
+  <title>md2pdf</title>
   <link rel="stylesheet" href="https://studio.local/vendor/katex.min.css" />
   <style id="docThemeStyles"></style>
   <style>
@@ -641,7 +641,7 @@
     <header class="topbar">
       <div class="brand-group">
         <div class="brand-mark" aria-hidden="true">&Sigma;</div>
-        <span class="brand-title">Gemini PDF Studio</span>
+        <span class="brand-title">md2pdf</span>
         <span class="status-pill" id="mathStatus">
           <span class="status-dot"></span>
           <span id="mathStatusText">Ready</span>
@@ -769,7 +769,7 @@
         <textarea
           id="sourceInput"
           spellcheck="false"
-          placeholder="Paste copied Gemini text (Ctrl+V), click Open, or drop a .txt / .md file anywhere in this window..."
+          placeholder="Paste Markdown or copied Gemini text (Ctrl+V), click Open, or drop a .txt / .md file anywhere in this window..."
         ></textarea>
       </section>
 
@@ -853,7 +853,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         cleanInvisible: true,
         viewMode: 'split',
         lastRenderedHtml: '',
-        lastTitle: 'Gemini_Document',
+        lastTitle: 'md2pdf_Document',
         currentFilename: 'Untitled',
         currentFilepath: '',
         dirty: false,
@@ -1026,9 +1026,9 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         updateDirtyFlag();
 
         if (!raw.trim()) {
-          elPreviewDoc.innerHTML = '<p style="opacity:0.6">Paste copied Gemini text or open/drop a .txt or .md file to preview formatted equations.</p>';
+          elPreviewDoc.innerHTML = '<p style="opacity:0.6">Paste Markdown or copied Gemini text, or open/drop a .txt or .md file to preview formatted equations.</p>';
           state.lastRenderedHtml = '';
-          state.lastTitle = 'Gemini_Document';
+          state.lastTitle = 'md2pdf_Document';
           state.lastStats = { equations: 0, blockEquations: 0, inlineEquations: 0, diagrams: 0, errors: 0 };
           elPreviewTitle.textContent = 'Rendered output';
           elEqBreakdown.textContent = '0 block · 0 inline';

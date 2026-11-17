@@ -1,4 +1,4 @@
-"""Local HTTP server for Gemini PDF Studio (static UI + sample loader + vector PDF export)."""
+"""Local HTTP server for md2pdf (static UI + sample loader + vector PDF export)."""
 
 from __future__ import annotations
 
@@ -21,15 +21,15 @@ mimetypes.add_type("text/css", ".css")
 
 def sanitize_filename(name: str) -> str:
     """Restrict download filenames to safe ASCII characters ending in .pdf."""
-    stem = Path(name or "Gemini_Document.pdf").stem
-    clean = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or "Gemini_Document"
+    stem = Path(name or "md2pdf_Document.pdf").stem
+    clean = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._") or "md2pdf_Document"
     return f"{clean[:80]}.pdf"
 
 
 class StudioHandler(BaseHTTPRequestHandler):
     """Serves the local studio UI and handles sample loading + PDF export."""
 
-    server_version = "GeminiPDFStudio/1.0"
+    server_version = "md2pdf/1.0"
 
     def log_message(self, format: str, *args) -> None:  # noqa: A002
         return
@@ -105,7 +105,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.BAD_REQUEST, {"error": "Missing html field"})
             return
 
-        filename = sanitize_filename(str(body.get("filename", "Gemini_Document.pdf")))
+        filename = sanitize_filename(str(body.get("filename", "md2pdf_Document.pdf")))
 
         try:
             pdf_bytes = html_to_pdf_bytes(html)
@@ -123,13 +123,13 @@ class StudioHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Gemini PDF Studio server.")
+    parser = argparse.ArgumentParser(description="Run md2pdf server.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
 
     httpd = ThreadingHTTPServer((args.host, args.port), StudioHandler)
-    print(f"Gemini PDF Studio running at http://{args.host}:{args.port}", flush=True)
+    print(f"md2pdf running at http://{args.host}:{args.port}", flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

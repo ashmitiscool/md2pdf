@@ -12,7 +12,7 @@ using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
-namespace GeminiPdfStudioDesktop
+namespace Md2PdfDesktop
 {
     internal static class NativeMethods
     {
@@ -206,7 +206,7 @@ namespace GeminiPdfStudioDesktop
 
         private string _currentFilePath = "";
         private string _currentFileName = "Untitled";
-        private string _lastDocTitle = "Gemini_Document";
+        private string _lastDocTitle = "md2pdf_Document";
         private string _lastExportedPdfPath = "";
         private DateTime _lastSelfSaveUtc = DateTime.MinValue;
         private string _pythonExecutable = null;
@@ -246,7 +246,7 @@ namespace GeminiPdfStudioDesktop
 
         private void InitializeWindow()
         {
-            this.Text = "Gemini PDF Studio";
+            this.Text = "md2pdf";
             this.BackColor = Color.FromArgb(11, 13, 17);
             this.ForeColor = Color.FromArgb(236, 240, 246);
             this.MinimumSize = new Size(880, 560);
@@ -437,7 +437,7 @@ namespace GeminiPdfStudioDesktop
                     _webView.CoreWebView2.OpenDevToolsWindow();
                 }
             }));
-            helpMenu.DropDownItems.Add(MakeItem("&About Gemini PDF Studio", Keys.None, delegate { ShowAboutDialog(); }));
+            helpMenu.DropDownItems.Add(MakeItem("&About md2pdf", Keys.None, delegate { ShowAboutDialog(); }));
 
             _menuStrip.Items.Add(fileMenu);
             _menuStrip.Items.Add(editMenu);
@@ -571,7 +571,7 @@ namespace GeminiPdfStudioDesktop
                 }
                 MessageBox.Show(
                     "Failed to initialize Microsoft Edge WebView2.\n\n" + ex.Message,
-                    "Gemini PDF Studio",
+                    "md2pdf",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Error
                 );
@@ -781,7 +781,7 @@ namespace GeminiPdfStudioDesktop
         {
             string dirtyPrefix = _isDirty ? "* " : "";
             string displayName = string.IsNullOrEmpty(_currentFileName) ? "Untitled" : _currentFileName;
-            this.Text = string.Format("{0}{1} - Gemini PDF Studio", dirtyPrefix, displayName);
+            this.Text = string.Format("{0}{1} - md2pdf", dirtyPrefix, displayName);
 
             string watchTag = (_fileWatcher != null && _settings.WatchOpenFile) ? " [Watching]" : "";
             string pathText = !string.IsNullOrEmpty(_currentFilePath) ? _currentFilePath : displayName;
@@ -1087,7 +1087,7 @@ namespace GeminiPdfStudioDesktop
 
         private async Task ExportViaPythonEngineAsync(string standaloneHtml, string targetPdf)
         {
-            string tempHtml = Path.Combine(Path.GetTempPath(), "gemini_desktop_" + Guid.NewGuid().ToString("N") + ".html");
+            string tempHtml = Path.Combine(Path.GetTempPath(), "md2pdf_desktop_" + Guid.NewGuid().ToString("N") + ".html");
             try
             {
                 File.WriteAllText(tempHtml, standaloneHtml, new UTF8Encoding(false));
@@ -1201,7 +1201,7 @@ namespace GeminiPdfStudioDesktop
             TriggerUiAction("setExportBusy", true);
             TriggerUiAction("showToast", string.Format("Batch converting {0} file(s)...", selectedFiles.Length));
 
-            string tempCfg = Path.Combine(Path.GetTempPath(), "gemini_batch_" + Guid.NewGuid().ToString("N") + ".json");
+            string tempCfg = Path.Combine(Path.GetTempPath(), "md2pdf_batch_" + Guid.NewGuid().ToString("N") + ".json");
             try
             {
                 Dictionary<string, object> cfg = new Dictionary<string, object>();
@@ -1598,7 +1598,7 @@ namespace GeminiPdfStudioDesktop
 
         private static string SanitizePdfFilename(string name)
         {
-            string baseName = string.IsNullOrEmpty(name) ? "Gemini_Document" : Path.GetFileNameWithoutExtension(name);
+            string baseName = string.IsNullOrEmpty(name) ? "md2pdf_Document" : Path.GetFileNameWithoutExtension(name);
             StringBuilder sb = new StringBuilder();
             foreach (char ch in baseName)
             {
@@ -1612,7 +1612,7 @@ namespace GeminiPdfStudioDesktop
                 }
             }
             string clean = sb.ToString().Trim('.', '_');
-            if (string.IsNullOrEmpty(clean)) clean = "Gemini_Document";
+            if (string.IsNullOrEmpty(clean)) clean = "md2pdf_Document";
             if (clean.Length > 80) clean = clean.Substring(0, 80);
             return clean + ".pdf";
         }
@@ -1666,12 +1666,12 @@ namespace GeminiPdfStudioDesktop
                 : "Shared Python Chromium Engine (../pdf_engine.py)";
 
             MessageBox.Show(
-                "Gemini PDF Studio (Windows Desktop Edition)\n\n" +
-                "Converts Gemini math exports, Markdown, and LaTeX into crisp vector PDFs.\n\n" +
+                "md2pdf (Windows Desktop Edition)\n\n" +
+                "Converts Markdown, LaTeX, Mermaid diagrams, and Gemini exports into crisp vector PDFs.\n\n" +
                 "Shared Renderer: ../gemini-renderer.js\n" +
                 "Shared KaTeX/Marked: ../vendor/\n" +
                 "Active PDF Engine: " + engineInfo,
-                "About Gemini PDF Studio",
+                "About md2pdf",
                 MessageBoxButtons.OK,
                 MessageBoxIcon.Information
             );
@@ -1683,7 +1683,7 @@ namespace GeminiPdfStudioDesktop
             {
                 DialogResult res = MessageBox.Show(
                     "You have unsaved changes in the editor.\n\nDiscard changes and exit?",
-                    "Unsaved Changes - Gemini PDF Studio",
+                    "Unsaved Changes - md2pdf",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Warning,
                     MessageBoxDefaultButton.Button2

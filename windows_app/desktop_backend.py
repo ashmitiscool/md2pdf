@@ -1,4 +1,4 @@
-"""Shared Python backend bridge for the Gemini PDF Studio Windows Desktop App."""
+"""Shared Python backend bridge for the md2pdf Windows Desktop App."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from gemini2pdf import build_cli_html  # noqa: E402
+from md2pdf import build_cli_html  # noqa: E402
 from pdf_engine import SAMPLE_TXT_PATH, html_to_pdf_bytes, read_text_auto  # noqa: E402
 
 
@@ -142,7 +142,7 @@ def cmd_batch_export(config_path: str) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Desktop backend bridge for Gemini PDF Studio.")
+    parser = argparse.ArgumentParser(description="Desktop backend bridge for md2pdf.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_read = sub.add_parser("read", help="Read a text/markdown file with encoding detection.")

@@ -1,4 +1,4 @@
-"""CLI converter turning Gemini .txt/.md files into vector PDFs using the shared renderer."""
+"""CLI converter turning Markdown and Gemini .txt exports into vector PDFs using the shared renderer."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Gemini PDF Export</title>
+  <title>md2pdf Export</title>
   <link rel="stylesheet" href="{katex_css}" />
   <style id="docCss"></style>
 </head>
@@ -72,9 +72,9 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Convert a Gemini .txt or .md export into a vector PDF."
+        description="Convert a Markdown (.md) or Gemini .txt export into a vector PDF."
     )
-    parser.add_argument("input_file", help="Path to the .txt or .md file copied from Gemini")
+    parser.add_argument("input_file", help="Path to the .md or .txt file to convert")
     parser.add_argument("output_file", nargs="?", help="Optional output .pdf path")
     parser.add_argument("--theme", choices=["dark", "light"], default="dark")
     parser.add_argument("--paper", choices=["A4", "Letter"], default="A4")

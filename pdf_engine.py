@@ -1,4 +1,4 @@
-"""Shared headless Chromium PDF rendering engine for Gemini PDF Studio."""
+"""Shared headless Chromium PDF rendering engine for md2pdf."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parent
 VENDOR_DIR = APP_DIR / "vendor"
-SAMPLE_TXT_PATH = Path(r"c:\Users\ashmi\AppData\Local\Temp\Ditto\DragFiles\text_865.txt")
+SAMPLE_TXT_PATH = APP_DIR / "sample.md"
 
 BROWSER_CANDIDATES = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -60,7 +60,7 @@ def html_to_pdf_bytes(html: str, timeout_sec: int = 45) -> bytes:
     browser = find_chromium_binary()
     resolved_html = resolve_local_katex_href(html)
 
-    with tempfile.TemporaryDirectory(prefix="gemini_pdf_") as tmp:
+    with tempfile.TemporaryDirectory(prefix="md2pdf_") as tmp:
         tmp_dir = Path(tmp)
         html_path = tmp_dir / "document.html"
         pdf_path = tmp_dir / "output.pdf"
