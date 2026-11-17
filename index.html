@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemini PDF Studio — .txt &amp; Markdown to Vector PDF</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23172554'/%3E%3Ctext x='16' y='22' text-anchor='middle' fill='%2393C5FD' font-family='serif' font-style='italic' font-weight='700' font-size='20'%3E%CE%A3%3C/text%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="vendor/katex.min.css" />
+  <style id="docThemeStyles"></style>
+  <style>
+    :root {
+      --bg-shell: #0B0D11;
+      --bg-panel: #12161F;
+      --bg-elevated: #181E29;
+      --border: #232936;
+      --border-strong: #323B4D;
+      --text-primary: #ECF0F6;
+      --text-muted: #8A94A6;
+      --accent: #3B82F6;
+      --accent-hover: #2563EB;
+      --status-ok: #10B981;
+      --status-warn: #F59E0B;
+      --font-sans: "Inter", "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+      --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg-shell);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .studio-app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header Bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 18px;
+      height: 54px;
+      background: var(--bg-shell);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      background: #172554;
+      border: 1px solid #1E40AF;
+      color: #93C5FD;
+      display: grid;
+      place-items: center;
+      font-family: "Times New Roman", serif;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--status-ok);
+      flex-shrink: 0;
+    }
+
+    .status-pill.has-warn .status-dot {
+      background: var(--status-warn);
+    }
+
+    .actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button, select {
+      font-family: var(--font-sans);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 7px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-panel);
+      color: var(--text-primary);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background-color 120ms ease, border-color 120ms ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-elevated);
+      border-color: #445066;
+    }
+
+    .btn:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .btn svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+
+    /* Controls Sub-bar */
+    .controlsbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 0 18px;
+      min-height: 42px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      font-size: 12.5px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      overflow-x: auto;
+    }
+
+    .control-cluster {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .segmented {
+      display: inline-flex;
+      padding: 2px;
+      border-radius: 7px;
+      background: var(--bg-shell);
+      border: 1px solid var(--border);
+    }
+
+    .segmented button {
+      height: 25px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 5px;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .segmented button.active {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .field {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .field select {
+      height: 28px;
+      padding: 0 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-shell);
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .toggle-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .toggle-label input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    /* Workspace Split */
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(340px, 44%) 1fr;
+      flex: 1;
+      min-height: 0;
+    }
+
+    .workspace.preview-only {
+      grid-template-columns: 1fr;
+    }
+
+    .workspace.preview-only .editor-pane {
+      display: none;
+    }
+
+    .editor-pane {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      min-height: 0;
+    }
+
+    .pane-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-shell);
+    }
+
+    .pane-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .file-badge {
+      color: var(--text-primary);
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      height: 24px;
+      padding: 0 8px;
+      font-size: 11.5px;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    .btn-ghost:hover {
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    #sourceInput {
+      flex: 1;
+      width: 100%;
+      border: none;
+      resize: none;
+      padding: 16px 18px;
+      background: var(--bg-panel);
+      color: #DCE3EE;
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      outline: none;
+      tab-size: 2;
+    }
+
+    #sourceInput::placeholder {
+      color: #636E82;
+    }
+
+    .preview-pane {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-shell);
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .preview-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 28px 28px 48px;
+    }
+
+    .paper-sheet {
+      max-width: 820px;
+      margin: 0 auto;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 40px 48px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .paper-sheet.theme-dark {
+      background: #131314;
+      border-color: #27282C;
+    }
+
+    .paper-sheet.theme-light {
+      background: #FFFFFF;
+      border-color: #D4D4D8;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Drag-and-Drop Overlay */
+    .drop-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(11, 13, 17, 0.86);
+      border: 2px dashed var(--accent);
+      z-index: 100;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .drop-overlay.visible {
+      display: flex;
+    }
+
+    .drop-overlay-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .drop-overlay-sub {
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Toast feedback */
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-strong);
+      color: var(--text-primary);
+      font-size: 12.5px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 150ms ease, transform 150ms ease;
+      z-index: 120;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .mobile-tabs {
+      display: none;
+    }
+
+    @media (max-width: 920px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+      .mobile-tabs {
+        display: inline-flex;
+      }
+      .workspace[data-mobile-tab="preview"] .editor-pane {
+        display: none;
+      }
+      .workspace[data-mobile-tab="editor"] .preview-pane {
+        display: none;
+      }
+      .paper-sheet {
+        padding: 24px 20px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        transition: none !important;
+      }
+    }
+
+    /* Print Mode (when printing directly from browser) */
+    @media print {
+      .topbar, .controlsbar, .editor-pane, .pane-header, .drop-overlay, .toast {
+        display: none !important;
+      }
+      .studio-app, .workspace, .preview-pane, .preview-scroll {
+        display: block !important;
+        height: auto !important;
+        overflow: visible !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: transparent !important;
+      }
+      .paper-sheet {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="studio-app">
+    <header class="topbar">
+      <div class="brand-group">
+        <div class="brand-mark" aria-hidden="true">&Sigma;</div>
+        <span class="brand-title">Gemini PDF Studio</span>
+        <span class="status-pill" id="mathStatus">
+          <span class="status-dot"></span>
+          <span id="mathStatusText">Ready</span>
+        </span>
+      </div>
+
+      <div class="actions-group">
+        <input type="file" id="fileInput" accept=".txt,.md,.markdown,.text,.tex,text/plain,text/markdown" hidden />
+        <button class="btn" id="btnPaste" type="button" title="Read directly from clipboard (or press Ctrl+V)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+          Paste clipboard
+        </button>
+        <button class="btn" id="btnOpenFile" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Open .txt / .md
+        </button>
+        <button class="btn" id="btnSample" type="button">Load sample</button>
+        <button class="btn" id="btnSaveHtml" type="button">Save HTML</button>
+        <button class="btn" id="btnPrint" type="button">Print</button>
+        <button class="btn btn-primary" id="btnExportPdf" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export vector PDF
+        </button>
+      </div>
+    </header>
+
+    <div class="controlsbar">
+      <div class="control-cluster">
+        <div class="segmented" role="group" aria-label="Document theme">
+          <button type="button" id="themeDark" class="active">Gemini Dark</button>
+          <button type="button" id="themeLight">Academic Light</button>
+        </div>
+
+        <label class="field">
+          <span>Paper</span>
+          <select id="paperSelect">
+            <option value="A4" selected>A4</option>
+            <option value="Letter">Letter</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Margins</span>
+          <select id="marginSelect">
+            <option value="compact">Compact</option>
+            <option value="normal" selected>Normal</option>
+            <option value="academic">Academic</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Type size</span>
+          <select id="fontSizeSelect">
+            <option value="13">13 px</option>
+            <option value="14">14 px</option>
+            <option value="15" selected>15 px</option>
+            <option value="16">16 px</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="control-cluster">
+        <label class="toggle-label" title="Indent sub-bullets and numbered steps that Gemini flattens on copy">
+          <input type="checkbox" id="optNestLists" checked />
+          <span>Nest Gemini sub-lists</span>
+        </label>
+        <label class="toggle-label" title="Strip zero-width and non-breaking padding characters">
+          <input type="checkbox" id="optCleanChars" checked />
+          <span>Clean hidden chars</span>
+        </label>
+        <label class="toggle-label">
+          <input type="checkbox" id="optShowEditor" checked />
+          <span>Show editor</span>
+        </label>
+
+        <div class="segmented mobile-tabs" role="group" aria-label="Mobile view">
+          <button type="button" id="mobilePreviewBtn" class="active">Preview</button>
+          <button type="button" id="mobileEditorBtn">Editor</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="workspace" id="workspace" data-mobile-tab="preview">
+      <section class="editor-pane">
+        <div class="pane-header">
+          <div class="pane-header-left">
+            <span class="file-badge" id="fileLabel">Source input (.txt / .md)</span>
+            <span id="charCount">0 chars</span>
+          </div>
+          <button class="btn-ghost" id="btnClear" type="button">Clear</button>
+        </div>
+        <textarea
+          id="sourceInput"
+          spellcheck="false"
+          placeholder="Paste copied Gemini text (Ctrl+V) or drop a .txt / .md file anywhere in this window..."
+        ></textarea>
+      </section>
+
+      <section class="preview-pane">
+        <div class="pane-header">
+          <span class="file-badge" id="previewTitle">Rendered output</span>
+          <span id="eqBreakdown">0 block &middot; 0 inline</span>
+        </div>
+        <div class="preview-scroll" id="previewScroll">
+          <div class="paper-sheet theme-dark" id="paperSheet">
+            <article class="gemini-doc" id="previewDoc"></article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="drop-overlay" id="dropOverlay">
+    <div class="drop-overlay-title">Drop .txt or .md file to render</div>
+    <div class="drop-overlay-sub">Accepts Gemini Ditto .txt exports, Markdown, and LaTeX files</div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="vendor/marked.min.js"></script>
+  <script src="vendor/katex.min.js"></script>
+  <script src="gemini-renderer.js"></script>
+  <script>
+    (function () {
+      const FALLBACK_SAMPLE = `## The Law of Total Probability
+
+**Source:** jbstatistics
+
+---
+
+### 1. Core Intuition & Sample Space Partitioning
+
+Suppose a sample space $S$ is divided into $k$ events $B_1, B_2, \\dots, B_k$. For the Law of Total Probability to hold, these events must form a **partition** of $S$, meaning they satisfy two strict conditions:
+
+* **Mutually Exclusive (Disjoint):** No two events $B_i$ and $B_j$ ($i \\neq j$) can occur simultaneously ($B_i \\cap B_j = \\emptyset$). If they overlapped, portions of another event $A$ would be double-counted.
+* **Collectively Exhaustive:** Together, the events cover the entire sample space ($\\bigcup_{i=1}^{k} B_i = S$), guaranteeing that exactly one $B_i$ occurs on every run of an experiment. If they were not exhaustive, portions of event $A$ would be missed.
+
+Any event $A$ within $S$ can be decomposed into the union of its intersections with each partition event:
+
+
+$$A = (A \\cap B_1) \\cup (A \\cap B_2) \\cup \\dots \\cup (A \\cap B_k)$$
+
+*(Note: Even if $A$ does not overlap with a particular partition—meaning $A \\cap B_i = \\emptyset$—the relationship still holds because the empty set contributes zero probability.)*
+
+Because $B_1, \\dots, B_k$ are mutually exclusive, the intersections $(A \\cap B_1), \\dots, (A \\cap B_k)$ are also mutually exclusive, so the probability of $A$ is simply the sum of their probabilities.
+
+---
+
+### 2. Formal Definitions & Identities
+
+* **Intersection Form:**
+
+$$P(A) = \\sum_{i=1}^{k} P(A \\cap B_i)$$
+
+
+* **Conditional Probability Form (Standard Form):**
+Applying the general multiplication rule, $P(A \\cap B_i) = P(B_i)P(A \\mid B_i)$, gives the most practical version of the law:
+
+$$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid B_k) = \\sum_{i=1}^{k} P(B_i)P(A \\mid B_i)$$`;
+
+      const state = {
+        theme: 'dark',
+        paper: 'A4',
+        margins: 'normal',
+        fontSize: 15,
+        reconstructLists: true,
+        cleanInvisible: true,
+        lastRenderedHtml: '',
+        lastTitle: 'Gemini_Document'
+      };
+
+      const elSource = document.getElementById('sourceInput');
+      const elPreviewDoc = document.getElementById('previewDoc');
+      const elPaperSheet = document.getElementById('paperSheet');
+      const elDocThemeStyles = document.getElementById('docThemeStyles');
+      const elFileInput = document.getElementById('fileInput');
+      const elFileLabel = document.getElementById('fileLabel');
+      const elCharCount = document.getElementById('charCount');
+      const elPreviewTitle = document.getElementById('previewTitle');
+      const elEqBreakdown = document.getElementById('eqBreakdown');
+      const elMathStatus = document.getElementById('mathStatus');
+      const elMathStatusText = document.getElementById('mathStatusText');
+      const elWorkspace = document.getElementById('workspace');
+      const elDropOverlay = document.getElementById('dropOverlay');
+      const elToast = document.getElementById('toast');
+
+      let toastTimer = null;
+      function showToast(msg) {
+        elToast.textContent = msg;
+        elToast.classList.add('visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          elToast.classList.remove('visible');
+        }, 2800);
+      }
+
+      function applyDocumentStyles() {
+        const css = GeminiRenderer.getDocumentStyles({
+          theme: state.theme,
+          paper: state.paper,
+          margins: state.margins,
+          fontSize: state.fontSize
+        });
+        elDocThemeStyles.textContent = css;
+        elPaperSheet.classList.toggle('theme-dark', state.theme === 'dark');
+        elPaperSheet.classList.toggle('theme-light', state.theme === 'light');
+        // Keep page shell dark when previewing in app; only body print background changes via @media print
+        document.body.style.background = '';
+        requestAnimationFrame(function () {
+          GeminiRenderer.fitWideEquations(elPreviewDoc);
+        });
+      }
+
+      function renderNow() {
+        const raw = elSource.value;
+        elCharCount.textContent = raw.length.toLocaleString() + ' chars';
+
+        if (!raw.trim()) {
+          elPreviewDoc.innerHTML = '<p style="opacity:0.6">Paste copied Gemini text or drop a .txt file to preview formatted equations.</p>';
+          state.lastRenderedHtml = '';
+          state.lastTitle = 'Gemini_Document';
+          elPreviewTitle.textContent = 'Rendered output';
+          elEqBreakdown.textContent = '0 block · 0 inline';
+          elMathStatus.classList.remove('has-warn');
+          elMathStatusText.textContent = 'Ready';
+          return;
+        }
+
+        const result = GeminiRenderer.renderGeminiMarkdown(raw, {
+          reconstructLists: state.reconstructLists,
+          cleanInvisible: state.cleanInvisible
+        });
+
+        state.lastRenderedHtml = result.html;
+        state.lastTitle = result.title;
+        elPreviewDoc.innerHTML = result.html;
+        elPreviewTitle.textContent = result.title.replace(/_/g, ' ');
+        elEqBreakdown.textContent =
+          result.stats.blockEquations + ' block · ' + result.stats.inlineEquations + ' inline';
+
+        if (result.stats.errors.length > 0) {
+          elMathStatus.classList.add('has-warn');
+          elMathStatusText.textContent =
+            result.stats.equations + ' equations (' + result.stats.errors.length + ' warning)';
+        } else {
+          elMathStatus.classList.remove('has-warn');
+          elMathStatusText.textContent = result.stats.equations + ' equations · vector ready';
+        }
+
+        requestAnimationFrame(function () {
+          GeminiRenderer.fitWideEquations(elPreviewDoc);
+        });
+      }
+
+      function decodeUploadedBytes(buffer) {
+        const bytes = new Uint8Array(buffer);
+        if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+          return new TextDecoder('utf-16le').decode(bytes.subarray(2));
+        }
+        if (bytes.length >= 2 && bytes[0] === 0xFE && bytes[1] === 0xFF) {
+          return new TextDecoder('utf-16be').decode(bytes.subarray(2));
+        }
+        if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+          return new TextDecoder('utf-8').decode(bytes.subarray(3));
+        }
+        return new TextDecoder('utf-8').decode(bytes);
+      }
+
+      function loadFileObject(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+          elSource.value = decodeUploadedBytes(ev.target.result);
+          elFileLabel.textContent = file.name;
+          renderNow();
+          showToast('Loaded ' + file.name);
+        };
+        reader.readAsArrayBuffer(file);
+      }
+
+      async function loadInitialSample() {
+        try {
+          const res = await fetch('/api/sample');
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.content) {
+              elSource.value = data.content;
+              elFileLabel.textContent = data.filename || 'text_865.txt';
+              renderNow();
+              return;
+            }
+          }
+        } catch (_) {
+          // Opened without local server; use built-in excerpt
+        }
+        elSource.value = FALLBACK_SAMPLE;
+        elFileLabel.textContent = 'sample_preview.txt';
+        renderNow();
+      }
+
+      // Theme buttons
+      const btnDark = document.getElementById('themeDark');
+      const btnLight = document.getElementById('themeLight');
+      btnDark.addEventListener('click', function () {
+        state.theme = 'dark';
+        btnDark.classList.add('active');
+        btnLight.classList.remove('active');
+        applyDocumentStyles();
+      });
+      btnLight.addEventListener('click', function () {
+        state.theme = 'light';
+        btnLight.classList.add('active');
+        btnDark.classList.remove('active');
+        applyDocumentStyles();
+      });
+
+      document.getElementById('paperSelect').addEventListener('change', function (e) {
+        state.paper = e.target.value;
+        applyDocumentStyles();
+      });
+      document.getElementById('marginSelect').addEventListener('change', function (e) {
+        state.margins = e.target.value;
+        applyDocumentStyles();
+      });
+      document.getElementById('fontSizeSelect').addEventListener('change', function (e) {
+        state.fontSize = Number(e.target.value);
+        applyDocumentStyles();
+      });
+      document.getElementById('optNestLists').addEventListener('change', function (e) {
+        state.reconstructLists = e.target.checked;
+        renderNow();
+      });
+      document.getElementById('optCleanChars').addEventListener('change', function (e) {
+        state.cleanInvisible = e.target.checked;
+        renderNow();
+      });
+      document.getElementById('optShowEditor').addEventListener('change', function (e) {
+        elWorkspace.classList.toggle('preview-only', !e.target.checked);
+        requestAnimationFrame(function () {
+          GeminiRenderer.fitWideEquations(elPreviewDoc);
+        });
+      });
+
+      // Mobile view toggle
+      const mobilePreviewBtn = document.getElementById('mobilePreviewBtn');
+      const mobileEditorBtn = document.getElementById('mobileEditorBtn');
+      mobilePreviewBtn.addEventListener('click', function () {
+        elWorkspace.setAttribute('data-mobile-tab', 'preview');
+        mobilePreviewBtn.classList.add('active');
+        mobileEditorBtn.classList.remove('active');
+      });
+      mobileEditorBtn.addEventListener('click', function () {
+        elWorkspace.setAttribute('data-mobile-tab', 'editor');
+        mobileEditorBtn.classList.add('active');
+        mobilePreviewBtn.classList.remove('active');
+      });
+
+      // Editor live updates
+      elSource.addEventListener('input', renderNow);
+
+      document.getElementById('btnClear').addEventListener('click', function () {
+        elSource.value = '';
+        elFileLabel.textContent = 'Untitled';
+        renderNow();
+        elSource.focus();
+      });
+
+      document.getElementById('btnOpenFile').addEventListener('click', function () {
+        elFileInput.click();
+      });
+      elFileInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files[0]) {
+          loadFileObject(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+
+      document.getElementById('btnSample').addEventListener('click', function () {
+        loadInitialSample().then(function () {
+          showToast('Sample loaded');
+        });
+      });
+
+      document.getElementById('btnPaste').addEventListener('click', async function () {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (!text) {
+            showToast('Clipboard is empty');
+            return;
+          }
+          elSource.value = text;
+          elFileLabel.textContent = 'Clipboard paste';
+          renderNow();
+          showToast('Pasted from clipboard');
+        } catch (err) {
+          elSource.focus();
+          showToast('Clipboard access blocked; click editor and press Ctrl+V');
+        }
+      });
+
+      // Global paste when focus is outside textarea
+      document.addEventListener('paste', function (e) {
+        if (document.activeElement === elSource) return;
+        const pasted = e.clipboardData && e.clipboardData.getData('text/plain');
+        if (pasted) {
+          e.preventDefault();
+          elSource.value = pasted;
+          elFileLabel.textContent = 'Clipboard paste';
+          renderNow();
+          showToast('Pasted from clipboard');
+        }
+      });
+
+      // Drag and drop anywhere
+      let dragDepth = 0;
+      window.addEventListener('dragenter', function (e) {
+        e.preventDefault();
+        dragDepth++;
+        elDropOverlay.classList.add('visible');
+      });
+      window.addEventListener('dragleave', function (e) {
+        e.preventDefault();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0) elDropOverlay.classList.remove('visible');
+      });
+      window.addEventListener('dragover', function (e) {
+        e.preventDefault();
+      });
+      window.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dragDepth = 0;
+        elDropOverlay.classList.remove('visible');
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (files && files[0]) {
+          loadFileObject(files[0]);
+        }
+      });
+
+      // Print
+      document.getElementById('btnPrint').addEventListener('click', function () {
+        GeminiRenderer.fitWideEquations(elPreviewDoc);
+        window.print();
+      });
+
+      // Save Standalone HTML
+      document.getElementById('btnSaveHtml').addEventListener('click', function () {
+        if (!state.lastRenderedHtml) {
+          showToast('Nothing to export yet');
+          return;
+        }
+        const html = GeminiRenderer.buildStandaloneHtml(state.lastRenderedHtml, {
+          title: state.lastTitle,
+          theme: state.theme,
+          paper: state.paper,
+          margins: state.margins,
+          fontSize: state.fontSize
+        });
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = state.lastTitle + '.html';
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Saved ' + state.lastTitle + '.html');
+      });
+
+      // 1-Click Vector PDF Export via local Chrome headless backend
+      const btnExportPdf = document.getElementById('btnExportPdf');
+      btnExportPdf.addEventListener('click', async function () {
+        if (!state.lastRenderedHtml) {
+          showToast('Nothing to export yet');
+          return;
+        }
+        const originalText = btnExportPdf.textContent;
+        btnExportPdf.disabled = true;
+        btnExportPdf.textContent = 'Generating PDF...';
+
+        try {
+          const standaloneHtml = GeminiRenderer.buildStandaloneHtml(state.lastRenderedHtml, {
+            title: state.lastTitle,
+            theme: state.theme,
+            paper: state.paper,
+            margins: state.margins,
+            fontSize: state.fontSize,
+            katexCssHref: 'vendor/katex.min.css'
+          });
+
+          const res = await fetch('/api/export-pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              html: standaloneHtml,
+              filename: state.lastTitle + '.pdf'
+            })
+          });
+
+          if (!res.ok) {
+            throw new Error('Server returned ' + res.status);
+          }
+
+          const pdfBlob = await res.blob();
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = state.lastTitle + '.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+          showToast('Downloaded ' + state.lastTitle + '.pdf');
+        } catch (err) {
+          showToast('Local PDF server unavailable — opening Print dialog');
+          window.print();
+        } finally {
+          btnExportPdf.disabled = false;
+          btnExportPdf.innerHTML =
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export vector PDF';
+        }
+      });
+
+      // Keep wide math responsive when splitting/resizing window
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(function () {
+          GeminiRenderer.fitWideEquations(elPreviewDoc);
+        });
+        ro.observe(elPaperSheet);
+      }
+
+      applyDocumentStyles();
+      loadInitialSample();
+    })();
+  </script>
+</body>
+</html>
