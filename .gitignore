@@ -1,0 +1,17 @@
+# Python bytecode & environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+
+# Windows Desktop App runtime profile & per-user settings
+windows_app/webview2_data/
+windows_app/settings.json
+
+# OS & temporary files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.log

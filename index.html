@@ -607,6 +607,7 @@
 
   <script src="vendor/marked.min.js"></script>
   <script src="vendor/katex.min.js"></script>
+  <script src="vendor/beautiful-mermaid.min.js"></script>
   <script src="gemini-renderer.js"></script>
   <script>
     (function () {
@@ -721,18 +722,23 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
 
         state.lastRenderedHtml = result.html;
         state.lastTitle = result.title;
+        const diagramCount = result.stats.diagrams || 0;
+        const diagramSuffix = diagramCount > 0
+          ? ' · ' + diagramCount + ' diagram' + (diagramCount === 1 ? '' : 's')
+          : '';
+
         elPreviewDoc.innerHTML = result.html;
         elPreviewTitle.textContent = result.title.replace(/_/g, ' ');
         elEqBreakdown.textContent =
-          result.stats.blockEquations + ' block · ' + result.stats.inlineEquations + ' inline';
+          result.stats.blockEquations + ' block · ' + result.stats.inlineEquations + ' inline' + diagramSuffix;
 
         if (result.stats.errors.length > 0) {
           elMathStatus.classList.add('has-warn');
           elMathStatusText.textContent =
-            result.stats.equations + ' equations (' + result.stats.errors.length + ' warning)';
+            result.stats.equations + ' equations' + diagramSuffix + ' (' + result.stats.errors.length + ' warning)';
         } else {
           elMathStatus.classList.remove('has-warn');
-          elMathStatusText.textContent = result.stats.equations + ' equations · vector ready';
+          elMathStatusText.textContent = result.stats.equations + ' equations' + diagramSuffix + ' · vector ready';
         }
 
         requestAnimationFrame(function () {

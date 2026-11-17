@@ -15,6 +15,7 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
     katex_css = (VENDOR_DIR / "katex.min.css").as_uri()
     marked_js = (VENDOR_DIR / "marked.min.js").as_uri()
     katex_js = (VENDOR_DIR / "katex.min.js").as_uri()
+    mermaid_js = (VENDOR_DIR / "beautiful-mermaid.min.js").as_uri()
     renderer_js = (APP_DIR / "gemini-renderer.js").as_uri()
     payload_json = json.dumps(
         {
@@ -38,6 +39,7 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
   <article class="gemini-doc" id="docRoot"></article>
   <script src="{marked_js}"></script>
   <script src="{katex_js}"></script>
+  <script src="{mermaid_js}"></script>
   <script src="{renderer_js}"></script>
   <script>
     (function() {{

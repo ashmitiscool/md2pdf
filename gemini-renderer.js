@@ -71,9 +71,69 @@
     return out.join('\n');
   }
 
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   /**
-   * Extract code blocks/spans and LaTeX math BEFORE Markdown parsing so
-   * underscores (_), asterisks (*), pipes (|), and backslashes (\) in math
+   * Detect whether a fenced code block body starts with a supported Mermaid header.
+   */
+  function isMermaidSource(code) {
+    let cleaned = String(code || '').replace(/\r\n?/g, '\n');
+    cleaned = cleaned.replace(/^\s*---\n[\s\S]*?\n---\s*(?:\n|$)/, '');
+    cleaned = cleaned.replace(/%%\{[\s\S]*?\}%%/g, '');
+    const lines = cleaned.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('%%')) continue;
+      return /^(?:(?:flowchart|graph)(?:\s+(?:TB|TD|BT|RL|LR))?\s*;?|(?:sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|xychart(?:-beta)?)\s*;?)$/i.test(
+        line
+      );
+    }
+    return false;
+  }
+
+  /**
+   * Normalize Mermaid diagram text before passing it to beautiful-mermaid.
+   */
+  function normalizeMermaidCode(code, fenceLang) {
+    let text = String(code || '').replace(/\r\n?/g, '\n').trim();
+    text = text.replace(/^---\n[\s\S]*?\n---\s*(?:\n|$)/, '');
+    text = text.replace(/%%\{[\s\S]*?\}%%/g, '').trim();
+
+    const info = String(fenceLang || '').trim();
+    if (/^(?:flowchart|graph)(?:\s+(?:TB|TD|BT|RL|LR))?$/i.test(info) && !isMermaidSource(text)) {
+      text = text ? info + '\n' + text : info;
+    }
+
+    const lines = text.split('\n');
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed || trimmed.startsWith('%%')) continue;
+      let header = trimmed.replace(/;\s*$/, '');
+      if (/^(?:flowchart|graph)$/i.test(header)) {
+        header = header + ' TD';
+      }
+      lines[i] = header;
+      headerIdx = i;
+      break;
+    }
+
+    if (headerIdx > 0) {
+      return lines.slice(headerIdx).join('\n').trim();
+    }
+    return lines.join('\n').trim();
+  }
+
+  /**
+   * Extract code blocks/spans, Mermaid diagrams, and LaTeX math BEFORE Markdown
+   * parsing so underscores (_), asterisks (*), pipes (|), and backslashes (\)
    * are never corrupted by Markdown emphasis or table rules.
    */
   function renderGeminiMarkdown(rawText, options) {
@@ -93,16 +153,36 @@
     let text = normalizeGeminiText(rawText, opts);
 
     const codeBlocks = [];
+    const mermaidBlocks = [];
     const inlineCodes = [];
     const blockMaths = [];
     const inlineMaths = [];
 
-    // 1. Protect fenced code blocks (```...``` or ~~~...~~~)
-    text = text.replace(/(^|\n)(```+|~~~+)[^\n]*\n[\s\S]*?\n\2[ \t]*(?=\n|$)/g, function (m) {
-      const token = '@@GMD_CODEBLOCK_' + codeBlocks.length + '@@';
-      codeBlocks.push(m);
-      return '\n' + token + '\n';
-    });
+    // 1. Protect fenced code blocks (```...``` or ~~~...~~~) and extract Mermaid blocks
+    text = text.replace(
+      /((?:^|\n)[ \t]*)(```+|~~~+)([^\n]*)\n(?:([\s\S]*?)\n)?[ \t]*\2[ \t]*(?=\n|$)/g,
+      function (m, prefix, fence, infoRaw, bodyRaw) {
+        const info = (infoRaw || '').trim();
+        const lang = info ? info.split(/\s+/)[0].toLowerCase() : '';
+        const body = bodyRaw || '';
+        const isHeaderLang = lang === 'flowchart' || lang === 'graph';
+        const candidate = isHeaderLang && !isMermaidSource(body) ? info + '\n' + body : body;
+
+        if (lang === 'mermaid' || ((lang === '' || isHeaderLang) && isMermaidSource(candidate))) {
+          const token = '@@GMD_MERMAID_' + mermaidBlocks.length + '@@';
+          mermaidBlocks.push({
+            code: normalizeMermaidCode(body, info),
+            rawFence: m,
+            explicit: lang === 'mermaid'
+          });
+          return '\n\n' + token + '\n\n';
+        }
+
+        const token = '@@GMD_CODEBLOCK_' + codeBlocks.length + '@@';
+        codeBlocks.push(m);
+        return '\n' + token + '\n';
+      }
+    );
 
     // 2. Protect inline code spans (`...`)
     text = text.replace(/`([^`\n]+)`/g, function (m) {
@@ -191,6 +271,36 @@
       return renderLatex(inlineMaths[Number(idx)], false);
     });
 
+    // 9. Render extracted Mermaid diagrams to vector SVG
+    let diagramCount = 0;
+    function renderMermaidBlock(entry) {
+      if (global.beautifulMermaid && typeof global.beautifulMermaid.renderMermaidSVG === 'function') {
+        try {
+          let svg = global.beautifulMermaid.renderMermaidSVG(entry.code, {
+            bg: '#18181B',
+            fg: '#FAFAFA',
+            font: 'Inter'
+          });
+          svg = svg.replace(/^(<svg\b[^>]*?\s)style="[^"]*"/, '$1style="background:var(--bg)"');
+          diagramCount++;
+          return '<div class="mermaid-block">' + svg + '</div>';
+        } catch (err) {
+          if (entry.explicit) {
+            errors.push({ latex: 'mermaid', message: err && err.message ? err.message : String(err) });
+          }
+        }
+      }
+      const codeClass = entry.explicit ? ' class="language-mermaid"' : '';
+      return '<pre><code' + codeClass + '>' + escapeHtml(entry.code) + '</code></pre>';
+    }
+
+    html = html.replace(/<p>\s*@@GMD_MERMAID_(\d+)@@\s*<\/p>/g, function (_, idx) {
+      return renderMermaidBlock(mermaidBlocks[Number(idx)]);
+    });
+    html = html.replace(/@@GMD_MERMAID_(\d+)@@/g, function (_, idx) {
+      return renderMermaidBlock(mermaidBlocks[Number(idx)]);
+    });
+
     // Extract title from first heading for suggested PDF filename
     let title = 'Gemini_Document';
     const headingMatch = rawText.match(/^#{1,4}\s+(.+)$/m);
@@ -210,6 +320,7 @@
         equations: equationCount,
         blockEquations: blockMaths.length,
         inlineEquations: inlineMaths.length,
+        diagrams: diagramCount,
         errors: errors
       }
     };
@@ -385,12 +496,34 @@
         color: ${heading};
         font-weight: 600;
       }
+      .gemini-doc .mermaid-block {
+        margin: 1.15em 0;
+        padding: 18px 20px;
+        background: ${isDark ? '#18181B' : '#FAFAFA'};
+        border: 1px solid ${codeBorder};
+        border-radius: 8px;
+        text-align: center;
+        overflow-x: auto;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .gemini-doc .mermaid-block svg {
+        --bg: ${isDark ? '#18181B' : '#FAFAFA'};
+        --fg: ${isDark ? '#FAFAFA' : '#27272A'};
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+      }
       @media print {
         .gemini-doc {
           max-width: none;
           width: 100%;
         }
         .gemini-doc .katex-display {
+          overflow-x: visible;
+        }
+        .gemini-doc .mermaid-block {
           overflow-x: visible;
         }
       }
