@@ -395,6 +395,7 @@
         print-color-adjust: exact;
       }
       .gemini-doc {
+        position: relative;
         font-family: "Inter", "Google Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
         font-size: ${cfg.fontSize}px;
         line-height: 1.65;
