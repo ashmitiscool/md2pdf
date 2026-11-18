@@ -7,12 +7,11 @@ import json
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+APP_DIR = Path(__file__).resolve().parent
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
 
-from md2pdf import build_cli_html  # noqa: E402
-from pdf_engine import SAMPLE_TXT_PATH, html_to_pdf_bytes, read_text_auto  # noqa: E402
+from pdf_engine import SAMPLE_TXT_PATH, build_cli_html, html_to_pdf_bytes, read_text_auto  # noqa: E402
 
 
 def _configure_stdio() -> None:

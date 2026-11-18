@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -96,3 +97,80 @@ def html_to_pdf_bytes(html: str, timeout_sec: int = 45) -> bytes:
             )
 
         return pdf_path.read_bytes()
+
+
+def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_size: int) -> str:
+    """Create a self-executing HTML runner that uses the exact shared JS renderer."""
+    katex_css = (VENDOR_DIR / "katex.min.css").as_uri()
+    marked_js = (VENDOR_DIR / "marked.min.js").as_uri()
+    katex_js = (VENDOR_DIR / "katex.min.js").as_uri()
+    mermaid_js = (VENDOR_DIR / "beautiful-mermaid.min.js").as_uri()
+    renderer_js = (APP_DIR / "gemini-renderer.js").as_uri()
+    payload_json = json.dumps(
+        {
+            "rawText": raw_text,
+            "theme": theme,
+            "paper": paper,
+            "margins": margins,
+            "fontSize": font_size,
+        }
+    ).replace("</", "<\\/")
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>md2pdf Export</title>
+  <link rel="stylesheet" href="{katex_css}" />
+  <style id="docCss"></style>
+</head>
+<body>
+  <article class="gemini-doc" id="docRoot"></article>
+  <script src="{marked_js}"></script>
+  <script src="{katex_js}"></script>
+  <script src="{mermaid_js}"></script>
+  <script src="{renderer_js}"></script>
+  <script>
+    (function() {{
+      var cfg = {payload_json};
+      document.getElementById('docCss').textContent = GeminiRenderer.getDocumentStyles({{
+        theme: cfg.theme,
+        paper: cfg.paper,
+        margins: cfg.margins,
+        fontSize: cfg.fontSize,
+        forPdf: true
+      }});
+      var res = GeminiRenderer.renderGeminiMarkdown(cfg.rawText, {{
+        reconstructLists: true,
+        cleanInvisible: true
+      }});
+      var root = document.getElementById('docRoot');
+      root.innerHTML = res.html;
+      document.title = res.title;
+      function fit() {{
+        GeminiRenderer.fitWideEquations(root, {{
+          paper: cfg.paper,
+          margins: cfg.margins
+        }});
+      }}
+      fit();
+      if (document.fonts && document.fonts.ready) {{
+        document.fonts.ready.then(fit);
+      }}
+      window.addEventListener('load', fit);
+      window.addEventListener('beforeprint', fit);
+      var printMql = window.matchMedia && window.matchMedia('print');
+      if (printMql) {{
+        var onPrintChange = function(e) {{
+          if (e.matches) fit();
+        }};
+        if (typeof printMql.addEventListener === 'function') {{
+          printMql.addEventListener('change', onPrintChange);
+        }} else if (typeof printMql.addListener === 'function') {{
+          printMql.addListener(onPrintChange);
+        }}
+      }}
+    }})();
+  </script>
+</body>
+</html>"""

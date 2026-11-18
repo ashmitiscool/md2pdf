@@ -18,7 +18,7 @@ try {
         }
     }
 
-    # Ensure WebView2 dependencies are present in windows_app\
+    # Ensure WebView2 dependencies are present in the root app directory
     $WebViewDeps = @(
         @{ Src = "C:\Program Files\Listary\Microsoft.Web.WebView2.Core.dll"; Dst = "Microsoft.Web.WebView2.Core.dll" },
         @{ Src = "C:\Program Files\Listary\Microsoft.Web.WebView2.WinForms.dll"; Dst = "Microsoft.Web.WebView2.WinForms.dll" },

@@ -840,7 +840,21 @@ $$P(A) = \\sum_{i=1}^{k} P(A \\cap B_i)$$
 * **Conditional Probability Form (Standard Form):**
 Applying the general multiplication rule, $P(A \\cap B_i) = P(B_i)P(A \\mid B_i)$, gives the most practical version of the law:
 
-$$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid B_k) = \\sum_{i=1}^{k} P(B_i)P(A \\mid B_i)$$`;
+$$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid B_k) = \\sum_{i=1}^{k} P(B_i)P(A \\mid B_i)$$
+
+---
+
+### 3. Partition Diagram
+
+\`\`\`mermaid
+flowchart LR
+    S["Sample Space S"] --> B1["Partition B1"]
+    S --> B2["Partition B2"]
+    B1 --> I1["A ∩ B1"]
+    B2 --> I2["A ∩ B2"]
+    I1 --> PA["Total P(A)"]
+    I2 --> PA
+\`\`\``;
 
       const hasWebView = Boolean(window.chrome && window.chrome.webview);
 

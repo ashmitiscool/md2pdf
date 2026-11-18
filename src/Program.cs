@@ -22,6 +22,23 @@ namespace Md2PdfDesktop
         [DllImport("dwmapi.dll")]
         internal static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
+        [StructLayout(LayoutKind.Sequential)]
+        internal struct RECT
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("dwmapi.dll")]
+        internal static extern int DwmGetWindowAttribute(IntPtr hwnd, int attr, out RECT attrValue, int attrSize);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        internal static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
+
+        internal const uint PW_RENDERFULLCONTENT = 0x00000002;
+        internal const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
         internal const int DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19;
         internal const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
@@ -154,12 +171,13 @@ namespace Md2PdfDesktop
     internal sealed class MainForm : Form
     {
         private readonly string _appDir;
-        private readonly string _rootDir;
         private readonly string _backendScriptPath;
         private readonly string _settingsPath;
         private readonly string _startupFilePath;
         private readonly string _selfTestOutputPath;
         private readonly bool _isSelfTest;
+        private readonly string _captureScreenshotsDir;
+        private readonly bool _isCaptureScreenshots;
         private readonly JavaScriptSerializer _json;
 
         private AppSettings _settings;
@@ -211,20 +229,21 @@ namespace Md2PdfDesktop
         private DateTime _lastSelfSaveUtc = DateTime.MinValue;
         private string _pythonExecutable = null;
 
-        public MainForm(string startupFilePath, string selfTestOutputPath)
+        public MainForm(string startupFilePath, string selfTestOutputPath, string captureScreenshotsDir)
         {
             _appDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
-            _rootDir = Path.GetFullPath(Path.Combine(_appDir, ".."));
             _backendScriptPath = Path.Combine(_appDir, "desktop_backend.py");
             _settingsPath = Path.Combine(_appDir, "settings.json");
             _startupFilePath = startupFilePath ?? "";
             _selfTestOutputPath = selfTestOutputPath ?? "";
             _isSelfTest = !string.IsNullOrEmpty(_selfTestOutputPath);
+            _captureScreenshotsDir = captureScreenshotsDir ?? "";
+            _isCaptureScreenshots = !string.IsNullOrEmpty(_captureScreenshotsDir);
 
             _json = new JavaScriptSerializer();
             _json.MaxJsonLength = int.MaxValue;
 
-            _settings = LoadSettings();
+            _settings = _isCaptureScreenshots ? new AppSettings() : LoadSettings();
             if (_settings.RecentFiles == null)
             {
                 _settings.RecentFiles = new List<string>();
@@ -274,6 +293,18 @@ namespace Md2PdfDesktop
                 this.Size = new Size(1280, 820);
                 this.ShowInTaskbar = false;
                 this.WindowState = FormWindowState.Minimized;
+                return;
+            }
+
+            if (_isCaptureScreenshots)
+            {
+                Rectangle wa = Screen.PrimaryScreen.WorkingArea;
+                int capW = Math.Min(1420, Math.Max(880, wa.Width));
+                int capH = Math.Min(880, Math.Max(560, wa.Height));
+                this.StartPosition = FormStartPosition.CenterScreen;
+                this.WindowState = FormWindowState.Normal;
+                this.Size = new Size(capW, capH);
+                this.TopMost = true;
                 return;
             }
 
@@ -407,7 +438,7 @@ namespace Md2PdfDesktop
 
             docMenu.DropDownItems.Add(new ToolStripSeparator());
             ToolStripMenuItem engineMenu = new ToolStripMenuItem("PDF &Engine");
-            _menuEnginePython = MakeItem("Shared Python Chromium Engine (pdf_engine.py)", Keys.None, delegate { SetPdfEngine("python"); });
+            _menuEnginePython = MakeItem("Python Chromium Engine (pdf_engine.py)", Keys.None, delegate { SetPdfEngine("python"); });
             _menuEngineWebView = MakeItem("Native WebView2 Direct PrintToPdf", Keys.None, delegate { SetPdfEngine("webview2"); });
             engineMenu.DropDownItems.Add(_menuEnginePython);
             engineMenu.DropDownItems.Add(_menuEngineWebView);
@@ -482,7 +513,7 @@ namespace Md2PdfDesktop
             _statusMath.ForeColor = Color.FromArgb(16, 185, 129);
             _statusMath.BorderSides = ToolStripStatusLabelBorderSides.Left;
 
-            _statusEngine = new ToolStripStatusLabel("Engine: Shared pdf_engine.py");
+            _statusEngine = new ToolStripStatusLabel("Engine: pdf_engine.py");
             _statusEngine.ForeColor = Color.FromArgb(147, 197, 253);
             _statusEngine.BorderSides = ToolStripStatusLabelBorderSides.Left;
 
@@ -547,10 +578,10 @@ namespace Md2PdfDesktop
                 core.Settings.AreDefaultContextMenusEnabled = true;
                 core.Settings.IsZoomControlEnabled = true;
 
-                // Map https://studio.local/ -> parent root folder so shared vendor/ & gemini-renderer.js load cleanly
+                // Map https://studio.local/ -> app folder so vendor/ & gemini-renderer.js load cleanly
                 core.SetVirtualHostNameToFolderMapping(
                     "studio.local",
-                    _rootDir,
+                    _appDir,
                     CoreWebView2HostResourceAccessKind.Allow
                 );
 
@@ -560,7 +591,7 @@ namespace Md2PdfDesktop
                     _webView.ZoomFactor = _settings.ZoomFactor;
                 }
 
-                core.Navigate("https://studio.local/windows_app/desktop_ui.html");
+                core.Navigate("https://studio.local/desktop_ui.html");
             }
             catch (Exception ex)
             {
@@ -735,6 +766,10 @@ namespace Md2PdfDesktop
             {
                 await RunSelfTestAsync();
             }
+            else if (_isCaptureScreenshots)
+            {
+                await RunCaptureScreenshotsAsync();
+            }
         }
 
         private void HandleStateChanged(Dictionary<string, object> msg)
@@ -801,7 +836,7 @@ namespace Md2PdfDesktop
 
             _statusEngine.Text = _settings.PdfEngine == "webview2"
                 ? "Engine: WebView2 Native"
-                : "Engine: Shared pdf_engine.py";
+                : "Engine: pdf_engine.py";
         }
 
         private async void OpenFileWithDialog()
@@ -1268,7 +1303,7 @@ namespace Md2PdfDesktop
             SyncMenuChecks();
             _statusEngine.Text = engine == "webview2"
                 ? "Engine: WebView2 Native"
-                : "Engine: Shared pdf_engine.py";
+                : "Engine: pdf_engine.py";
             TriggerUiAction("showToast", "PDF engine set to " + _statusEngine.Text.Replace("Engine: ", ""));
         }
 
@@ -1547,7 +1582,7 @@ namespace Md2PdfDesktop
                 ProcessStartInfo psi = new ProcessStartInfo();
                 psi.FileName = py;
                 psi.Arguments = argLine.ToString();
-                psi.WorkingDirectory = _rootDir;
+                psi.WorkingDirectory = _appDir;
                 psi.UseShellExecute = false;
                 psi.CreateNoWindow = true;
                 psi.RedirectStandardOutput = true;
@@ -1663,13 +1698,13 @@ namespace Md2PdfDesktop
         {
             string engineInfo = _settings.PdfEngine == "webview2"
                 ? "Native WebView2 PrintToPdf"
-                : "Shared Python Chromium Engine (../pdf_engine.py)";
+                : "Python Chromium Engine (pdf_engine.py)";
 
             MessageBox.Show(
                 "md2pdf (Windows Desktop Edition)\n\n" +
                 "Converts Markdown, LaTeX, Mermaid diagrams, and Gemini exports into crisp vector PDFs.\n\n" +
-                "Shared Renderer: ../gemini-renderer.js\n" +
-                "Shared KaTeX/Marked: ../vendor/\n" +
+                "Renderer: gemini-renderer.js\n" +
+                "Bundled Libraries: vendor/\n" +
                 "Active PDF Engine: " + engineInfo,
                 "About md2pdf",
                 MessageBoxButtons.OK,
@@ -1679,7 +1714,7 @@ namespace Md2PdfDesktop
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            if (!_isSelfTest && _isDirty && !_allowClose && e.CloseReason == CloseReason.UserClosing)
+            if (!_isSelfTest && !_isCaptureScreenshots && _isDirty && !_allowClose && e.CloseReason == CloseReason.UserClosing)
             {
                 DialogResult res = MessageBox.Show(
                     "You have unsaved changes in the editor.\n\nDiscard changes and exit?",
@@ -1696,7 +1731,7 @@ namespace Md2PdfDesktop
             }
 
             CloseFileWatcher();
-            if (!_isSelfTest)
+            if (!_isSelfTest && !_isCaptureScreenshots)
             {
                 SaveWindowBounds();
                 SaveSettings();
@@ -1734,7 +1769,7 @@ namespace Md2PdfDesktop
 
         private void SaveSettings()
         {
-            if (_isSelfTest) return;
+            if (_isSelfTest || _isCaptureScreenshots) return;
             try
             {
                 File.WriteAllText(_settingsPath, _json.Serialize(_settings), new UTF8Encoding(false));
@@ -1742,6 +1777,207 @@ namespace Md2PdfDesktop
             catch
             {
                 // Non-fatal
+            }
+        }
+
+        private Rectangle GetVisibleWindowBounds()
+        {
+            try
+            {
+                NativeMethods.RECT rect;
+                int hr = NativeMethods.DwmGetWindowAttribute(
+                    this.Handle,
+                    NativeMethods.DWMWA_EXTENDED_FRAME_BOUNDS,
+                    out rect,
+                    Marshal.SizeOf(typeof(NativeMethods.RECT))
+                );
+                if (hr == 0 && rect.Right > rect.Left && rect.Bottom > rect.Top)
+                {
+                    return new Rectangle(rect.Left, rect.Top, rect.Right - rect.Left, rect.Bottom - rect.Top);
+                }
+            }
+            catch
+            {
+                // Fallback below
+            }
+            return this.Bounds;
+        }
+
+        private async Task CaptureWindowPngAsync(string filePath)
+        {
+            this.Activate();
+            this.BringToFront();
+            this.Refresh();
+            Application.DoEvents();
+            await Task.Delay(200);
+
+            Rectangle winBounds = GetVisibleWindowBounds();
+            if (winBounds.Width <= 0 || winBounds.Height <= 0)
+            {
+                throw new InvalidOperationException("Invalid window bounds for screenshot capture.");
+            }
+
+            Image wvImg = null;
+            Rectangle wvScreen = Rectangle.Empty;
+            if (_webView != null && _webView.CoreWebView2 != null)
+            {
+                wvScreen = _webView.RectangleToScreen(_webView.ClientRectangle);
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    await _webView.CoreWebView2.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, ms);
+                    ms.Position = 0;
+                    wvImg = Image.FromStream(ms);
+                }
+            }
+
+            try
+            {
+                bool capturedFromScreen = false;
+                using (Bitmap bmp = new Bitmap(winBounds.Width, winBounds.Height))
+                {
+                    using (Graphics g = Graphics.FromImage(bmp))
+                    {
+                        try
+                        {
+                            g.CopyFromScreen(winBounds.Location, Point.Empty, winBounds.Size);
+                            capturedFromScreen = true;
+                        }
+                        catch
+                        {
+                            capturedFromScreen = false;
+                        }
+
+                        if (capturedFromScreen)
+                        {
+                            if (wvImg != null)
+                            {
+                                g.DrawImage(wvImg, new Rectangle(wvScreen.Left - winBounds.Left, wvScreen.Top - winBounds.Top, wvScreen.Width, wvScreen.Height));
+                            }
+                        }
+                    }
+                    if (capturedFromScreen)
+                    {
+                        bmp.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                        return;
+                    }
+                }
+
+                // Fallback when desktop screen DC is unavailable (non-interactive / locked session)
+                Rectangle fullBounds = this.Bounds;
+                using (Bitmap fullBmp = new Bitmap(fullBounds.Width, fullBounds.Height))
+                {
+                    bool printed = false;
+                    using (Graphics fg = Graphics.FromImage(fullBmp))
+                    {
+                        fg.Clear(Color.FromArgb(11, 13, 17));
+                        IntPtr hdc = fg.GetHdc();
+                        try
+                        {
+                            printed = NativeMethods.PrintWindow(this.Handle, hdc, NativeMethods.PW_RENDERFULLCONTENT);
+                            if (!printed)
+                            {
+                                printed = NativeMethods.PrintWindow(this.Handle, hdc, 0);
+                            }
+                        }
+                        finally
+                        {
+                            fg.ReleaseHdc(hdc);
+                        }
+                    }
+
+                    if (!printed)
+                    {
+                        this.DrawToBitmap(fullBmp, new Rectangle(0, 0, fullBounds.Width, fullBounds.Height));
+                    }
+
+                    if (wvImg != null)
+                    {
+                        using (Graphics fg = Graphics.FromImage(fullBmp))
+                        {
+                            fg.DrawImage(wvImg, new Rectangle(wvScreen.Left - fullBounds.Left, wvScreen.Top - fullBounds.Top, wvScreen.Width, wvScreen.Height));
+                        }
+                    }
+
+                    int cropX = Math.Max(0, winBounds.Left - fullBounds.Left);
+                    int cropY = Math.Max(0, winBounds.Top - fullBounds.Top);
+                    int cropW = Math.Min(winBounds.Width, fullBounds.Width - cropX);
+                    int cropH = Math.Min(winBounds.Height, fullBounds.Height - cropY);
+                    if (cropW <= 0 || cropH <= 0)
+                    {
+                        fullBmp.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                    }
+                    else
+                    {
+                        using (Bitmap cropped = fullBmp.Clone(new Rectangle(cropX, cropY, cropW, cropH), fullBmp.PixelFormat))
+                        {
+                            cropped.Save(filePath, System.Drawing.Imaging.ImageFormat.Png);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                if (wvImg != null)
+                {
+                    wvImg.Dispose();
+                }
+            }
+        }
+
+        private async Task RunCaptureScreenshotsAsync()
+        {
+            try
+            {
+                string outDir = Path.GetFullPath(_captureScreenshotsDir);
+                Directory.CreateDirectory(outDir);
+
+                this.Activate();
+                this.BringToFront();
+                await Task.Delay(800);
+
+                // 1. Capture Gemini Dark split view
+                await CaptureWindowPngAsync(Path.Combine(outDir, "app-dark.png"));
+
+                // 2. Switch to Academic Light, scroll to display math + Mermaid diagram, open Document Outline, and capture
+                SetDocumentSetting("theme", "light");
+                if (_webView != null && _webView.CoreWebView2 != null)
+                {
+                    await _webView.CoreWebView2.ExecuteScriptAsync(
+                        "(function(){" +
+                        "var ps = document.getElementById('previewScroll'); if (ps) ps.scrollTop = ps.scrollHeight - ps.clientHeight;" +
+                        "var si = document.getElementById('sourceInput'); if (si) si.scrollTop = si.scrollHeight - si.clientHeight;" +
+                        "document.getElementById('outlineMenu').classList.add('visible');" +
+                        "})();"
+                    );
+                }
+                await Task.Delay(500);
+                await CaptureWindowPngAsync(Path.Combine(outDir, "app-light.png"));
+
+                // 3. Clean up UI state and exit
+                if (_webView != null && _webView.CoreWebView2 != null)
+                {
+                    await _webView.CoreWebView2.ExecuteScriptAsync("document.getElementById('outlineMenu').classList.remove('visible');");
+                }
+                SetDocumentSetting("theme", "dark");
+
+                _allowClose = true;
+                Program.ExitCodeOverride = 0;
+                Application.Exit();
+            }
+            catch (Exception ex)
+            {
+                try
+                {
+                    string outDir = Path.GetFullPath(_captureScreenshotsDir);
+                    Directory.CreateDirectory(outDir);
+                    File.WriteAllText(Path.Combine(outDir, "capture_error.txt"), ex.ToString(), new UTF8Encoding(false));
+                }
+                catch
+                {
+                }
+                _allowClose = true;
+                Program.ExitCodeOverride = 1;
+                Application.Exit();
             }
         }
 
@@ -1879,6 +2115,7 @@ namespace Md2PdfDesktop
 
             string startupFile = "";
             string selfTestOut = "";
+            string captureDir = "";
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -1887,13 +2124,18 @@ namespace Md2PdfDesktop
                     selfTestOut = args[i + 1];
                     i++;
                 }
+                else if (string.Equals(args[i], "--capture-screenshots", StringComparison.OrdinalIgnoreCase) && i + 1 < args.Length)
+                {
+                    captureDir = args[i + 1];
+                    i++;
+                }
                 else if (string.IsNullOrEmpty(startupFile) && !args[i].StartsWith("--"))
                 {
                     startupFile = args[i];
                 }
             }
 
-            using (MainForm form = new MainForm(startupFile, selfTestOut))
+            using (MainForm form = new MainForm(startupFile, selfTestOut, captureDir))
             {
                 Application.Run(form);
             }

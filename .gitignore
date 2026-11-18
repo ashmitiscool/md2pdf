@@ -6,8 +6,8 @@ __pycache__/
 venv/
 
 # Windows Desktop App runtime profile & per-user settings
-windows_app/webview2_data/
-windows_app/settings.json
+webview2_data/
+settings.json
 
 # Build / release outputs
 dist/
