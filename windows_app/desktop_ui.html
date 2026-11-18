@@ -972,9 +972,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         document.getElementById('marginSelect').value = state.margins;
         document.getElementById('fontSizeSelect').value = String(state.fontSize);
 
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
         notifyHostState(false);
       }
 
@@ -985,9 +982,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         document.getElementById('viewSplit').classList.toggle('active', valid === 'split');
         document.getElementById('viewEditor').classList.toggle('active', valid === 'editor');
         document.getElementById('viewPreview').classList.toggle('active', valid === 'preview');
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
         notifyHostState(false);
       }
 
@@ -1076,9 +1070,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
 
         rebuildOutline();
         updateFindMatches();
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
         notifyHostState(false);
       }
 
@@ -1089,6 +1080,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
           paper: state.paper,
           margins: state.margins,
           fontSize: state.fontSize,
+          forPdf: Boolean(forPdf),
           katexCssHref: forPdf ? 'vendor/katex.min.css' : 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'
         });
       }
@@ -1328,7 +1320,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
           showToast('Nothing to export yet');
           return;
         }
-        GeminiRenderer.fitWideEquations(elPreviewDoc);
         const standaloneHtml = buildExportHtml(true);
         const suggested = state.lastTitle + '.pdf';
         if (hasWebView) {
@@ -1491,7 +1482,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
       document.getElementById('btnSaveHtml').addEventListener('click', requestSaveHtml);
       document.getElementById('btnExportPdf').addEventListener('click', requestExportPdf);
       document.getElementById('btnPrint').addEventListener('click', function () {
-        GeminiRenderer.fitWideEquations(elPreviewDoc);
+        GeminiRenderer.fitWideEquations(elPreviewDoc, state);
         if (hasWebView) {
           postToHost({ type: 'print' });
         } else {
@@ -1554,11 +1545,27 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         }
       });
 
-      if (typeof ResizeObserver !== 'undefined') {
-        const ro = new ResizeObserver(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
-        ro.observe(elPaperSheet);
+      // Only minify wide equations during print, then restore scrollable preview
+      window.addEventListener('beforeprint', function () {
+        GeminiRenderer.fitWideEquations(elPreviewDoc, state);
+      });
+      window.addEventListener('afterprint', function () {
+        GeminiRenderer.resetEquationSizing(elPreviewDoc);
+      });
+      const printMql = window.matchMedia && window.matchMedia('print');
+      if (printMql) {
+        const onPrintChange = function (e) {
+          if (e.matches) {
+            GeminiRenderer.fitWideEquations(elPreviewDoc, state);
+          } else {
+            GeminiRenderer.resetEquationSizing(elPreviewDoc);
+          }
+        };
+        if (typeof printMql.addEventListener === 'function') {
+          printMql.addEventListener('change', onPrintChange);
+        } else if (typeof printMql.addListener === 'function') {
+          printMql.addListener(onPrintChange);
+        }
       }
 
       // Public API exposed for C# WinForms Host via ExecuteScriptAsync
@@ -1672,7 +1679,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
           }
         },
         getSelfTestSnapshot: function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
           return {
             ready: Boolean(window.GeminiRenderer && window.katex && window.marked && window.beautifulMermaid),
             title: state.lastTitle,

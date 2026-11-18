@@ -327,6 +327,21 @@
   }
 
   /**
+   * Compute the printable content width in millimeters for a given paper and margin preset.
+   */
+  function getPrintableWidthMm(config) {
+    const cfg = config || {};
+    const paperWidthMm = cfg.paper === 'Letter' ? 215.9 : 210;
+    const sideMarginMap = {
+      compact: 14,
+      normal: 20,
+      academic: 24
+    };
+    const sideMarginMm = sideMarginMap[cfg.margins] || sideMarginMap.normal;
+    return +(paperWidthMm - sideMarginMm * 2).toFixed(2);
+  }
+
+  /**
    * Build the shared CSS used both inside the live preview container and in
    * standalone/PDF print documents so screen preview and PDF match identically.
    */
@@ -336,12 +351,15 @@
         theme: 'dark',
         paper: 'A4',
         margins: 'normal',
-        fontSize: 15
+        fontSize: 15,
+        forPdf: false
       },
       config || {}
     );
 
     const isDark = cfg.theme === 'dark';
+    const forPdf = Boolean(cfg.forPdf);
+    const printableWidthMm = getPrintableWidthMm(cfg);
     const marginMap = {
       compact: '12mm 14mm',
       normal: '18mm 20mm',
@@ -382,7 +400,7 @@
         line-height: 1.65;
         color: ${fg};
         background: ${bg};
-        max-width: 780px;
+        ${forPdf ? `max-width: ${printableWidthMm}mm;\n        width: ${printableWidthMm}mm;` : 'max-width: 780px;'}
         margin: 0 auto;
         word-wrap: break-word;
       }
@@ -434,8 +452,7 @@
       .gemini-doc .katex-display {
         margin: 1.05em 0;
         padding: 0.25em 0;
-        overflow-x: auto;
-        overflow-y: hidden;
+        ${forPdf ? 'overflow: visible;\n        overflow-x: visible;\n        overflow-y: visible;' : 'overflow-x: auto;\n        overflow-y: hidden;'}
         text-align: center;
         color: ${heading};
         break-inside: avoid;
@@ -521,33 +538,109 @@
           width: 100%;
         }
         .gemini-doc .katex-display {
-          overflow-x: visible;
+          overflow: visible !important;
+          overflow-x: visible !important;
+          overflow-y: visible !important;
         }
         .gemini-doc .mermaid-block {
-          overflow-x: visible;
+          overflow: visible !important;
+          overflow-x: visible !important;
+          overflow-y: visible !important;
         }
       }
     `;
   }
 
   /**
-   * Scale down overly wide display equations only when they would clip past
-   * the container width (e.g. long multi-term derivations on A4 portrait).
+   * Restore default KaTeX sizing after printing so screen preview stays scrollable.
    */
-  function fitWideEquations(rootEl) {
+  function resetEquationSizing(rootEl) {
     if (!rootEl) return;
-    const maxW = rootEl.clientWidth;
-    if (!maxW) return;
+    const exprs = rootEl.querySelectorAll('.katex');
+    for (let i = 0; i < exprs.length; i++) {
+      exprs[i].style.fontSize = '';
+    }
+  }
+
+  /**
+   * Scale down overly wide display and inline equations so they fit within
+   * the printable page width during export/print without clipping.
+   */
+  function fitWideEquations(rootEl, options) {
+    if (!rootEl) return;
+    const rootRect = rootEl.getBoundingClientRect();
+    if (!rootRect || !rootRect.width) return;
+
+    const printableWidthPx = getPrintableWidthMm(options) * (96 / 25.4);
+
+    function scaleToFit(el, availW, measureFn) {
+      const naturalW = measureFn();
+      if (naturalW > availW) {
+        let scale = availW / naturalW;
+        el.style.fontSize = Math.max(0.25, 1.05 * scale).toFixed(4) + 'em';
+        const afterW = measureFn();
+        if (afterW > availW) {
+          scale *= availW / afterW;
+          el.style.fontSize = Math.max(0.25, 1.05 * scale).toFixed(4) + 'em';
+        }
+      }
+    }
+
     const blocks = rootEl.querySelectorAll('.katex-display');
     for (let i = 0; i < blocks.length; i++) {
       const block = blocks[i];
       const inner = block.querySelector('.katex');
       if (!inner) continue;
+
       inner.style.fontSize = '';
-      const naturalW = inner.scrollWidth;
-      if (naturalW > maxW) {
-        const ratio = Math.max(0.68, (maxW - 4) / naturalW);
-        inner.style.fontSize = ratio.toFixed(3) + 'em';
+      const blockRect = block.getBoundingClientRect();
+      const inTableCell = Boolean(block.closest('td, th'));
+      const indentPx = inTableCell ? 0 : Math.max(0, rootRect.width - (blockRect.width || 0));
+      const availW = Math.max(
+        100,
+        Math.min(blockRect.width || printableWidthPx, printableWidthPx - indentPx) - 6
+      );
+
+      inner.style.display = 'inline-block';
+      scaleToFit(inner, availW, function () {
+        return inner.getBoundingClientRect().width || inner.scrollWidth;
+      });
+      inner.style.display = '';
+    }
+
+    const inlineExprs = rootEl.querySelectorAll('.katex');
+    for (let i = 0; i < inlineExprs.length; i++) {
+      const k = inlineExprs[i];
+      if (k.closest('.katex-display')) continue;
+      k.style.fontSize = '';
+
+      const container = k.closest('li, p, td, th, blockquote') || rootEl;
+      const cRect = container.getBoundingClientRect();
+      const cs = typeof getComputedStyle === 'function' ? getComputedStyle(container) : null;
+      const padX = cs ? (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) : 0;
+      const cInnerW = Math.max(0, (cRect.width || 0) - padX);
+      if (!cInnerW) continue;
+
+      const isTableCell = container.tagName === 'TD' || container.tagName === 'TH';
+      let availInlineW;
+      if (isTableCell) {
+        const shrinkFactor = rootRect.width > printableWidthPx ? printableWidthPx / rootRect.width : 1;
+        availInlineW = Math.max(60, cInnerW * shrinkFactor - 6);
+      } else {
+        const cIndent = Math.max(0, rootRect.width - cInnerW);
+        availInlineW = Math.max(100, Math.min(cInnerW, printableWidthPx - cIndent) - 6);
+      }
+
+      const bases = k.querySelectorAll('.base');
+      if (bases.length) {
+        scaleToFit(k, availInlineW, function () {
+          let maxBaseW = 0;
+          for (let j = 0; j < bases.length; j++) {
+            const bw = bases[j].getBoundingClientRect().width;
+            if (bw > maxBaseW) maxBaseW = bw;
+          }
+          return maxBaseW;
+        });
       }
     }
   }
@@ -563,6 +656,7 @@
         paper: 'A4',
         margins: 'normal',
         fontSize: 15,
+        forPdf: false,
         katexCssHref: 'https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css'
       },
       options || {}
@@ -570,6 +664,11 @@
 
     const safeTitle = String(opts.title).replace(/[<>&"]/g, '');
     const css = getDocumentStyles(opts);
+    const fitConfigJson = JSON.stringify({
+      paper: opts.paper,
+      margins: opts.margins,
+      forPdf: Boolean(opts.forPdf)
+    }).replace(/</g, '\\u003c');
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -584,28 +683,42 @@
   <article class="gemini-doc" id="docRoot">${renderedHtml}</article>
   <script>
     (function() {
+      var fitCfg = ${fitConfigJson};
+      ${getPrintableWidthMm.toString()}
+      ${resetEquationSizing.toString()}
+      ${fitWideEquations.toString()}
       function fit() {
-        var root = document.getElementById('docRoot');
-        if (!root) return;
-        var maxW = root.clientWidth;
-        if (!maxW) return;
-        var blocks = root.querySelectorAll('.katex-display');
-        for (var i = 0; i < blocks.length; i++) {
-          var inner = blocks[i].querySelector('.katex');
-          if (!inner) continue;
-          inner.style.fontSize = '';
-          if (inner.scrollWidth > maxW) {
-            var r = Math.max(0.68, (maxW - 4) / inner.scrollWidth);
-            inner.style.fontSize = r.toFixed(3) + 'em';
-          }
-        }
+        fitWideEquations(document.getElementById('docRoot'), fitCfg);
       }
-      if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(fit);
-      } else {
+      function reset() {
+        resetEquationSizing(document.getElementById('docRoot'));
+      }
+      if (fitCfg.forPdf) {
+        fit();
+        if (document.fonts && document.fonts.ready) {
+          document.fonts.ready.then(fit);
+        }
         window.addEventListener('load', fit);
       }
       window.addEventListener('beforeprint', fit);
+      if (!fitCfg.forPdf) {
+        window.addEventListener('afterprint', reset);
+      }
+      var printMql = window.matchMedia && window.matchMedia('print');
+      if (printMql) {
+        var onPrintChange = function (e) {
+          if (e.matches) {
+            fit();
+          } else if (!fitCfg.forPdf) {
+            reset();
+          }
+        };
+        if (typeof printMql.addEventListener === 'function') {
+          printMql.addEventListener('change', onPrintChange);
+        } else if (typeof printMql.addListener === 'function') {
+          printMql.addListener(onPrintChange);
+        }
+      }
     })();
   </script>
 </body>
@@ -616,7 +729,9 @@
     normalizeGeminiText: normalizeGeminiText,
     reconstructGeminiLists: reconstructGeminiLists,
     renderGeminiMarkdown: renderGeminiMarkdown,
+    getPrintableWidthMm: getPrintableWidthMm,
     getDocumentStyles: getDocumentStyles,
+    resetEquationSizing: resetEquationSizing,
     fitWideEquations: fitWideEquations,
     buildStandaloneHtml: buildStandaloneHtml
   };

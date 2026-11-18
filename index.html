@@ -695,9 +695,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         elPaperSheet.classList.toggle('theme-light', state.theme === 'light');
         // Keep page shell dark when previewing in app; only body print background changes via @media print
         document.body.style.background = '';
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
       }
 
       function renderNow() {
@@ -740,10 +737,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
           elMathStatus.classList.remove('has-warn');
           elMathStatusText.textContent = result.stats.equations + ' equations' + diagramSuffix + ' · vector ready';
         }
-
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
       }
 
       function decodeUploadedBytes(buffer) {
@@ -830,9 +823,6 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
       });
       document.getElementById('optShowEditor').addEventListener('change', function (e) {
         elWorkspace.classList.toggle('preview-only', !e.target.checked);
-        requestAnimationFrame(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
       });
 
       // Mobile view toggle
@@ -932,7 +922,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
 
       // Print
       document.getElementById('btnPrint').addEventListener('click', function () {
-        GeminiRenderer.fitWideEquations(elPreviewDoc);
+        GeminiRenderer.fitWideEquations(elPreviewDoc, state);
         window.print();
       });
 
@@ -977,6 +967,7 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
             paper: state.paper,
             margins: state.margins,
             fontSize: state.fontSize,
+            forPdf: true,
             katexCssHref: 'vendor/katex.min.css'
           });
 
@@ -1011,12 +1002,27 @@ $$P(A) = P(B_1)P(A \\mid B_1) + P(B_2)P(A \\mid B_2) + \\dots + P(B_k)P(A \\mid 
         }
       });
 
-      // Keep wide math responsive when splitting/resizing window
-      if (typeof ResizeObserver !== 'undefined') {
-        const ro = new ResizeObserver(function () {
-          GeminiRenderer.fitWideEquations(elPreviewDoc);
-        });
-        ro.observe(elPaperSheet);
+      // Only minify wide equations during print, then restore scrollable preview
+      window.addEventListener('beforeprint', function () {
+        GeminiRenderer.fitWideEquations(elPreviewDoc, state);
+      });
+      window.addEventListener('afterprint', function () {
+        GeminiRenderer.resetEquationSizing(elPreviewDoc);
+      });
+      const printMql = window.matchMedia && window.matchMedia('print');
+      if (printMql) {
+        const onPrintChange = function (e) {
+          if (e.matches) {
+            GeminiRenderer.fitWideEquations(elPreviewDoc, state);
+          } else {
+            GeminiRenderer.resetEquationSizing(elPreviewDoc);
+          }
+        };
+        if (typeof printMql.addEventListener === 'function') {
+          printMql.addEventListener('change', onPrintChange);
+        } else if (typeof printMql.addListener === 'function') {
+          printMql.addListener(onPrintChange);
+        }
       }
 
       applyDocumentStyles();

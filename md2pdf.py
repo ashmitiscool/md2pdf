@@ -48,7 +48,8 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
         theme: cfg.theme,
         paper: cfg.paper,
         margins: cfg.margins,
-        fontSize: cfg.fontSize
+        fontSize: cfg.fontSize,
+        forPdf: true
       }});
       var res = GeminiRenderer.renderGeminiMarkdown(cfg.rawText, {{
         reconstructLists: true,
@@ -58,11 +59,27 @@ def build_cli_html(raw_text: str, theme: str, paper: str, margins: str, font_siz
       root.innerHTML = res.html;
       document.title = res.title;
       function fit() {{
-        GeminiRenderer.fitWideEquations(root);
+        GeminiRenderer.fitWideEquations(root, {{
+          paper: cfg.paper,
+          margins: cfg.margins
+        }});
       }}
       fit();
       if (document.fonts && document.fonts.ready) {{
         document.fonts.ready.then(fit);
+      }}
+      window.addEventListener('load', fit);
+      window.addEventListener('beforeprint', fit);
+      var printMql = window.matchMedia && window.matchMedia('print');
+      if (printMql) {{
+        var onPrintChange = function(e) {{
+          if (e.matches) fit();
+        }};
+        if (typeof printMql.addEventListener === 'function') {{
+          printMql.addEventListener('change', onPrintChange);
+        }} else if (typeof printMql.addListener === 'function') {{
+          printMql.addListener(onPrintChange);
+        }}
       }}
     }})();
   </script>
